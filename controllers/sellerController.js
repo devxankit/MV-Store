@@ -166,6 +166,9 @@ exports.createProduct = async (req, res) => {
     await product.save();
     res.status(201).json(product);
   } catch (error) {
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: error.message, errors: error.errors });
+    }
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -177,11 +180,72 @@ exports.updateProduct = async (req, res) => {
     if (!seller) return res.status(404).json({ message: 'Seller not found' });
     const product = await Product.findOne({ _id: req.params.id, seller: seller._id });
     if (!product) return res.status(404).json({ message: 'Product not found' });
-    Object.assign(product, req.body);
+
+    let imageUrl = product.images && product.images[0] ? product.images[0].url : '';
+    if (req.file) {
+      try {
+        const uploadResult = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream({ folder: 'products' }, (error, result) => {
+            if (error) return reject(error);
+            resolve(result);
+          });
+          if (!req.file.buffer) return reject(new Error('No file buffer found in req.file'));
+          stream.end(req.file.buffer);
+        });
+        imageUrl = uploadResult.secure_url;
+      } catch (uploadError) {
+        return res.status(500).json({ message: 'Image upload failed', error: uploadError.message });
+      }
+    }
+
+    // Parse fields from req.body
+    const {
+      name, description, shortDescription, price, comparePrice, category, subCategory, brand, sku, stock, lowStockThreshold, weight, dimensions, variants, tags, shippingInfo, seo, features, specifications
+    } = req.body;
+
+    // Parse features and specifications
+    let featuresArr = [];
+    if (features) {
+      featuresArr = typeof features === 'string' ? features.split(',').map(f => f.trim()).filter(Boolean) : features;
+    }
+    let specificationsArr = [];
+    if (specifications) {
+      try {
+        specificationsArr = typeof specifications === 'string' ? JSON.parse(specifications) : specifications;
+      } catch (e) {
+        specificationsArr = [];
+      }
+    }
+
+    // Update product fields
+    product.name = name;
+    product.description = description;
+    product.shortDescription = shortDescription;
+    product.price = price;
+    product.comparePrice = comparePrice;
+    product.images = imageUrl ? [{ url: imageUrl }] : product.images;
+    product.category = category;
+    product.subCategory = subCategory;
+    product.brand = brand;
+    product.sku = sku;
+    product.stock = stock;
+    product.lowStockThreshold = lowStockThreshold;
+    product.weight = weight;
+    product.dimensions = dimensions;
+    product.variants = variants;
+    product.specifications = specificationsArr;
+    product.features = featuresArr;
+    product.tags = tags;
+    product.shippingInfo = shippingInfo;
+    product.seo = seo;
+
     await product.save();
     res.json(product);
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: error.message, errors: error.errors });
+    }
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 

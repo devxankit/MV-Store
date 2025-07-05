@@ -29,7 +29,13 @@ exports.searchProducts = (req, res) => {
 // Get products by category
 exports.getProductsByCategory = asyncHandler(async (req, res) => {
   const categoryId = req.params.categoryId;
-  const products = await Product.find({ category: categoryId });
+  // Find products where either category or subCategory matches
+  const products = await Product.find({
+    $or: [
+      { category: categoryId },
+      { subCategory: categoryId }
+    ]
+  });
   res.json(products);
 });
 
