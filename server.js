@@ -47,18 +47,38 @@ if (process.env.FRONTEND_URL_PRODUCTION) {
   allowedOrigins.push(process.env.FRONTEND_URL_PRODUCTION);
 }
 
+// Log allowed origins for debugging
+console.log('Allowed CORS origins:', allowedOrigins);
+
+// More permissive CORS for production debugging
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log('Request with no origin - allowing');
+      return callback(null, true);
+    }
+    
+    console.log('Request origin:', origin);
+    console.log('Allowed origins:', allowedOrigins);
+    
+    // For production, be more permissive during debugging
+    if (process.env.NODE_ENV === 'production') {
+      console.log('Production mode - allowing all origins for debugging');
+      return callback(null, true);
+    }
     
     if (allowedOrigins.indexOf(origin) !== -1) {
+      console.log('Origin allowed:', origin);
       callback(null, true);
     } else {
+      console.log('Origin blocked:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 // Connect to MongoDB
@@ -89,6 +109,12 @@ if (process.env.NODE_ENV === 'production') {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Debug middleware to log all requests
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/uploads/chat', express.static(path.join(__dirname, 'uploads/chat')));
@@ -104,6 +130,15 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/translate', translateRoutes);
+
+// Test route to verify server is working
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    message: 'Server is working!', 
+    timestamp: new Date().toISOString(),
+    cors: 'CORS should be working'
+  });
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
