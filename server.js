@@ -36,8 +36,28 @@ const connectDB = require('./config/db');
 const app = express();
 
 // CORS configuration - must be at the top and explicit for local dev
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://mv-store.vercel.app',
+  'https://mv-store-ram312908-gmailcoms-projects.vercel.app'
+];
+
+// Add FRONTEND_URL_PRODUCTION if it exists
+if (process.env.FRONTEND_URL_PRODUCTION) {
+  allowedOrigins.push(process.env.FRONTEND_URL_PRODUCTION);
+}
+
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 
@@ -118,9 +138,20 @@ const server = app.listen(PORT, () => {
 });
 
 // --- SOCKET.IO SETUP ---
+const socketOrigins = [
+  'http://localhost:3000',
+  'https://mv-store.vercel.app',
+  'https://mv-store-ram312908-gmailcoms-projects.vercel.app'
+];
+
+// Add FRONTEND_URL_PRODUCTION if it exists
+if (process.env.FRONTEND_URL_PRODUCTION) {
+  socketOrigins.push(process.env.FRONTEND_URL_PRODUCTION);
+}
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: socketOrigins,
     credentials: true
   }
 });
