@@ -8,16 +8,18 @@ router.get('/', productController.getProducts);
 router.get('/featured', productController.getFeaturedProducts);
 router.get('/search', productController.searchProducts);
 router.get('/category/:categoryId', productController.getProductsByCategory);
-router.get('/:id', productController.getProduct);
-router.get('/:id', productController.getProductById);
 
-// Protected routes (for reviews)
-router.post('/:id/reviews', protect, productController.addReview);
+// Get all reviews for a vendor's products (must come before /:id routes)
+router.get('/vendor/:vendorId/reviews', productController.getReviewsForVendor);
+
+// Get product by ID
+router.get('/:id', productController.getProduct);
 
 // Get all reviews for a product
 router.get('/:id/reviews', productController.getReviewsForProduct);
-// Get all reviews for a vendor's products
-router.get('/vendor/:vendorId/reviews', productController.getReviewsForVendor);
+
+// Protected routes (for reviews)
+router.post('/:id/reviews', protect, productController.addReview);
 
 // Update and delete review routes
 router.patch('/:id/reviews', protect, productController.updateReview);
