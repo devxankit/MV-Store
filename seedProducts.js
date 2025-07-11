@@ -90,7 +90,7 @@ async function seedProducts() {
         specifications,
         tags: [subcat.name, mainCat ? mainCat.name : ''],
         isActive: true,
-        isFeatured: Math.random() > 0.7,
+        isFeatured: false,
         isApproved: true
       });
       count++;

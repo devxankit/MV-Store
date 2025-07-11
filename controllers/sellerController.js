@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Product = require('../models/Product');
 const cloudinary = require('../utils/cloudinary');
 const Category = require('../models/Category');
+const mongoose = require('mongoose');
 
 // Register a new seller (vendor request)
 exports.register = async (req, res) => {
@@ -79,34 +80,27 @@ exports.createProduct = async (req, res) => {
     const seller = await Seller.findOne({ userId: req.user._id });
     if (!seller) return res.status(404).json({ message: 'Seller not found' });
 
-    let imageUrl = '';
-    if (req.file) {
-      console.log('Received file:', req.file);
-      console.log('Received body:', req.body);
-      try {
-        const uploadResult = await new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream({ folder: 'products' }, (error, result) => {
-            if (error) {
-              console.error('Cloudinary upload error:', error);
-              return reject(error);
-            }
-            resolve(result);
+    let imageUrls = [];
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        try {
+          const uploadResult = await new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream({ folder: 'products' }, (error, result) => {
+              if (error) return reject(error);
+              resolve(result);
+            });
+            stream.end(file.buffer);
           });
-          if (!req.file.buffer) {
-            console.error('No file buffer found in req.file');
-            return reject(new Error('No file buffer found in req.file'));
-          }
-          stream.end(req.file.buffer);
-        });
-        imageUrl = uploadResult.secure_url;
-      } catch (uploadError) {
-        console.error('Image upload failed:', uploadError);
-        return res.status(500).json({ message: 'Image upload failed', error: uploadError.message });
+          imageUrls.push({ url: uploadResult.secure_url });
+        } catch (uploadError) {
+          console.error('Image upload failed:', uploadError);
+          return res.status(500).json({ message: 'Image upload failed', error: uploadError.message });
+        }
       }
     }
     // Fallback to default image if no image uploaded
-    if (!imageUrl) {
-      imageUrl = 'https://res.cloudinary.com/demo/image/upload/v1690000000/products/default-product.png'; // Replace with your own default image URL
+    if (imageUrls.length === 0) {
+      imageUrls = [{ url: 'https://res.cloudinary.com/demo/image/upload/v1690000000/products/default-product.png' }];
     }
 
     let categoryId = req.body.category;
@@ -120,21 +114,52 @@ exports.createProduct = async (req, res) => {
       categoryId = category._id;
     }
 
+    // Parse and convert fields
     const {
-      name, description, shortDescription, price, comparePrice, subCategory, brand, sku, stock, lowStockThreshold, weight, dimensions, variants, tags, shippingInfo, seo, features, specifications
+      name, description, shortDescription, price, comparePrice, subCategory, brand, sku, stock, lowStockThreshold, weight, dimensions, variants, tags, shippingInfo, seo
     } = req.body;
+
+    // Convert numeric fields
+    const priceNum = price ? Number(price) : undefined;
+    const comparePriceNum = comparePrice ? Number(comparePrice) : undefined;
+    const stockNum = stock ? Number(stock) : undefined;
+    const lowStockThresholdNum = lowStockThreshold ? Number(lowStockThreshold) : undefined;
+    const weightNum = weight ? Number(weight) : undefined;
 
     // Parse features and specifications
     let featuresArr = [];
-    if (features) {
-      featuresArr = typeof features === 'string' ? features.split(',').map(f => f.trim()).filter(Boolean) : features;
+    if (req.body.features) {
+      featuresArr = typeof req.body.features === 'string'
+        ? req.body.features.split(',').map(f => f.trim()).filter(Boolean)
+        : req.body.features;
     }
     let specificationsArr = [];
-    if (specifications) {
+    if (req.body.specifications) {
       try {
-        specificationsArr = typeof specifications === 'string' ? JSON.parse(specifications) : specifications;
+        specificationsArr = typeof req.body.specifications === 'string'
+          ? JSON.parse(req.body.specifications)
+          : req.body.specifications;
       } catch (e) {
         specificationsArr = [];
+      }
+    }
+
+    // Parse category and subCategory as ObjectId
+    let subCategoryId = req.body.subCategory;
+    if (categoryId && !mongoose.Types.ObjectId.isValid(categoryId)) {
+      return res.status(400).json({ message: 'Invalid category ID' });
+    }
+    if (subCategoryId && !mongoose.Types.ObjectId.isValid(subCategoryId)) {
+      return res.status(400).json({ message: 'Invalid subCategory ID' });
+    }
+
+    // Parse variants if present
+    let variantsArr = [];
+    if (variants) {
+      try {
+        variantsArr = typeof variants === 'string' ? JSON.parse(variants) : variants;
+      } catch (e) {
+        variantsArr = [];
       }
     }
 
@@ -142,19 +167,19 @@ exports.createProduct = async (req, res) => {
       name,
       description,
       shortDescription,
-      price,
-      comparePrice,
-      images: imageUrl ? [{ url: imageUrl }] : [],
+      price: priceNum,
+      comparePrice: comparePriceNum,
+      images: imageUrls,
       category: categoryId,
-      subCategory,
+      subCategory: subCategoryId,
       brand,
       seller: seller._id,
       sku,
-      stock,
-      lowStockThreshold,
-      weight,
+      stock: stockNum,
+      lowStockThreshold: lowStockThresholdNum,
+      weight: weightNum,
       dimensions,
-      variants,
+      variants: variantsArr,
       specifications: specificationsArr,
       features: featuresArr,
       tags,
@@ -166,6 +191,10 @@ exports.createProduct = async (req, res) => {
     await product.save();
     res.status(201).json(product);
   } catch (error) {
+    console.error('Product creation error:', error);
+    if (error.code === 11000 && error.keyPattern && error.keyPattern.sku) {
+      return res.status(400).json({ message: 'SKU must be unique. A product with this SKU already exists.' });
+    }
     if (error.name === 'ValidationError') {
       return res.status(400).json({ message: error.message, errors: error.errors });
     }

@@ -30,20 +30,89 @@ const reviewSchema = new mongoose.Schema({
   timestamps: true
 });
 
+/**
+ * Product Variant Option Schema
+ * @typedef {Object} VariantOption
+ * @property {String} value - The value of the option (e.g., 'Black', '128GB')
+ * @property {Number} price - The price for this option
+ * @property {Number} [comparePrice] - The compare price for this option
+ * @property {Number} stock - The stock for this option
+ * @property {String} sku - The SKU for this option
+ * @property {Array<{url: String, alt?: String, isPrimary?: Boolean}>} images - Images for this option
+ * @property {Array<{key: String, value: String}>} specifications - Specifications for this option
+ * @property {Number} [weight] - Weight for this option
+ * @property {Object} [dimensions] - Dimensions for this option
+ * @property {Boolean} isActive - Whether this option is active
+ */
+
+/**
+ * Product Variant Schema
+ * @typedef {Object} Variant
+ * @property {String} name - The name of the variant (e.g., 'Color', 'Storage')
+ * @property {VariantOption[]} options - The options for this variant
+ */
+
+// Enhanced variant schema for comprehensive product variants
+const variantOptionSchema = new mongoose.Schema({
+  value: {
+    type: String,
+    required: true
+  },
+  price: {
+    type: Number,
+    required: true,
+    min: [0, 'Price cannot be negative']
+  },
+  comparePrice: {
+    type: Number,
+    min: [0, 'Compare price cannot be negative']
+  },
+  stock: {
+    type: Number,
+    default: 0,
+    min: [0, 'Stock cannot be negative']
+  },
+  sku: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  images: [{
+    url: {
+      type: String,
+      required: true
+    },
+    alt: String,
+    isPrimary: {
+      type: Boolean,
+      default: false
+    }
+  }],
+  specifications: [{
+    key: String,
+    value: String
+  }],
+  weight: {
+    type: Number,
+    min: 0
+  },
+  dimensions: {
+    length: Number,
+    width: Number,
+    height: Number
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  }
+});
+
 const variantSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true
   },
-  options: [{
-    value: String,
-    price: Number,
-    stock: {
-      type: Number,
-      default: 0
-    },
-    sku: String
-  }]
+  options: [variantOptionSchema]
 });
 
 const productSchema = new mongoose.Schema({
@@ -102,7 +171,6 @@ const productSchema = new mongoose.Schema({
   },
   sku: {
     type: String,
-    unique: true,
     required: [true, 'Please provide a SKU']
   },
   stock: {
@@ -138,6 +206,10 @@ const productSchema = new mongoose.Schema({
     default: true
   },
   isFeatured: {
+    type: Boolean,
+    default: false
+  },
+  isEventProduct: {
     type: Boolean,
     default: false
   },
@@ -232,5 +304,88 @@ productSchema.pre('save', function(next) {
   }
   next();
 });
+
+// Instance method to get variant by combination
+productSchema.methods.getVariantByCombination = function(variantCombination) {
+  if (!this.variants || this.variants.length === 0) {
+    return null;
+  }
+
+  // Find the variant option that matches the combination
+  for (const variant of this.variants) {
+    for (const option of variant.options) {
+      if (option.value === variantCombination[variant.name]) {
+        return option;
+      }
+    }
+  }
+  return null;
+};
+
+// Instance method to get all available variant combinations
+productSchema.methods.getAvailableVariants = function() {
+  if (!this.variants || this.variants.length === 0) {
+    return [];
+  }
+
+  const combinations = [];
+  
+  // Generate all possible combinations
+  const generateCombinations = (variants, current = {}, index = 0) => {
+    if (index === variants.length) {
+      combinations.push({ ...current });
+      return;
+    }
+
+    const variant = variants[index];
+    for (const option of variant.options) {
+      if (option.isActive && option.stock > 0) {
+        current[variant.name] = option.value;
+        generateCombinations(variants, current, index + 1);
+      }
+    }
+  };
+
+  generateCombinations(this.variants);
+  return combinations;
+};
+
+// Instance method to get total stock across all variants
+productSchema.methods.getTotalStock = function() {
+  if (!this.variants || this.variants.length === 0) {
+    return this.stock;
+  }
+
+  let totalStock = 0;
+  for (const variant of this.variants) {
+    for (const option of variant.options) {
+      if (option.isActive) {
+        totalStock += option.stock;
+      }
+    }
+  }
+  return totalStock;
+};
+
+// Instance method to get minimum and maximum prices
+productSchema.methods.getPriceRange = function() {
+  if (!this.variants || this.variants.length === 0) {
+    return { min: this.price, max: this.price };
+  }
+
+  let minPrice = Infinity;
+  let maxPrice = -Infinity;
+
+  for (const variant of this.variants) {
+    for (const option of variant.options) {
+      if (option.isActive) {
+        minPrice = Math.min(minPrice, option.price);
+        maxPrice = Math.max(maxPrice, option.price);
+      }
+    }
+  }
+
+  return { min: minPrice === Infinity ? this.price : minPrice, max: maxPrice === -Infinity ? this.price : maxPrice };
+};
 
 module.exports = mongoose.model('Product', productSchema); 
