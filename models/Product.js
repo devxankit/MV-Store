@@ -209,6 +209,14 @@ const productSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  isDiscover: {
+    type: Boolean,
+    default: false
+  },
+  isRecommended: {
+    type: Boolean,
+    default: false
+  },
   isEventProduct: {
     type: Boolean,
     default: false

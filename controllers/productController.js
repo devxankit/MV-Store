@@ -532,3 +532,59 @@ exports.deleteEventBanner = async (req, res) => {
   await eventBanner.deleteOne();
   res.json({ message: 'Event banner deleted' });
 }; 
+
+// Get discover products
+exports.getDiscoverProducts = async (req, res) => {
+  try {
+    const products = await Product.find({ isDiscover: true, isApproved: true })
+      .sort({ updatedAt: -1 })
+      .limit(8);
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch discover products', error: error.message });
+  }
+};
+
+// Get recommended products
+exports.getRecommendedProducts = async (req, res) => {
+  try {
+    const products = await Product.find({ isRecommended: true, isApproved: true })
+      .sort({ updatedAt: -1 })
+      .limit(8);
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch recommended products', error: error.message });
+  }
+};
+
+// Admin: Set/unset discover product
+exports.setDiscoverProduct = async (req, res) => {
+  const product = await Product.findById(req.params.id);
+  if (!product) return res.status(404).json({ message: 'Product not found', route: req.originalUrl || req.url });
+  product.isDiscover = true;
+  await product.save();
+  res.json(product);
+};
+exports.unsetDiscoverProduct = async (req, res) => {
+  const product = await Product.findById(req.params.id);
+  if (!product) return res.status(404).json({ message: 'Product not found', route: req.originalUrl || req.url });
+  product.isDiscover = false;
+  await product.save();
+  res.json(product);
+};
+
+// Admin: Set/unset recommended product
+exports.setRecommendedProduct = async (req, res) => {
+  const product = await Product.findById(req.params.id);
+  if (!product) return res.status(404).json({ message: 'Product not found', route: req.originalUrl || req.url });
+  product.isRecommended = true;
+  await product.save();
+  res.json(product);
+};
+exports.unsetRecommendedProduct = async (req, res) => {
+  const product = await Product.findById(req.params.id);
+  if (!product) return res.status(404).json({ message: 'Product not found', route: req.originalUrl || req.url });
+  product.isRecommended = false;
+  await product.save();
+  res.json(product);
+}; 

@@ -17,6 +17,10 @@ router.post('/event-banner', protect, authorize('admin'), productController.crea
 router.get('/event-banner', productController.getEventBanner);
 router.delete('/event-banner', protect, authorize('admin'), productController.deleteEventBanner);
 
+// Discover and recommended products
+router.get('/discover', productController.getDiscoverProducts);
+router.get('/recommended', productController.getRecommendedProducts);
+
 // Get all reviews for a vendor's products (must come before /:id routes)
 router.get('/vendor/:vendorId/reviews', productController.getReviewsForVendor);
 
@@ -49,6 +53,14 @@ router.patch('/:id/unfeature', protect, authorize('admin'), productController.un
 // Admin-only: Set/unset event product
 router.patch('/:id/event-product', protect, authorize('admin'), productController.setEventProduct);
 router.patch('/:id/unevent-product', protect, authorize('admin'), productController.unsetEventProduct);
+
+// Admin-only: Set/unset discover product
+router.patch('/:id/discover', protect, authorize('admin'), productController.setDiscoverProduct);
+router.patch('/:id/undiscover', protect, authorize('admin'), productController.unsetDiscoverProduct);
+
+// Admin-only: Set/unset recommended product
+router.patch('/:id/recommend', protect, authorize('admin'), productController.setRecommendedProduct);
+router.patch('/:id/unrecommend', protect, authorize('admin'), productController.unsetRecommendedProduct);
 
 // Variant management routes (Seller only)
 // Add a new variant to a product
