@@ -75,7 +75,7 @@ const variantOptionSchema = new mongoose.Schema({
   sku: {
     type: String,
     required: true,
-    unique: true
+    // unique: true // Temporarily removed for seeding without variants
   },
   images: [{
     url: {
@@ -243,6 +243,10 @@ const productSchema = new mongoose.Schema({
   },
   reviews: [reviewSchema],
   totalSold: {
+    type: Number,
+    default: 0
+  },
+  soldCount: {
     type: Number,
     default: 0
   },

@@ -21,5 +21,6 @@ router.delete('/products/:id', sellerController.deleteProduct);
 router.get('/orders', sellerController.getOrders);
 router.put('/orders/:id/status', sellerController.updateOrderStatus);
 router.get('/stats', sellerController.getStats);
+router.put('/products/:id/sold-count', sellerController.updateSoldCount);
 
 module.exports = router; 

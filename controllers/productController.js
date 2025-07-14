@@ -23,7 +23,8 @@ exports.getProduct = asyncHandler(async (req, res) => {
   productData.totalStock = product.getTotalStock();
   productData.priceRange = product.getPriceRange();
   productData.availableVariants = product.getAvailableVariants();
-
+  // Ensure soldCount is present
+  productData.soldCount = product.soldCount;
   res.json(productData);
 });
 

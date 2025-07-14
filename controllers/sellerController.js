@@ -291,6 +291,25 @@ exports.deleteProduct = async (req, res) => {
   }
 };
 
+// Update sold count for a product (seller only)
+exports.updateSoldCount = async (req, res) => {
+  try {
+    const seller = await Seller.findOne({ userId: req.user._id });
+    if (!seller) return res.status(404).json({ message: 'Seller not found' });
+    const product = await Product.findOne({ _id: req.params.id, seller: seller._id });
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+    const { soldCount } = req.body;
+    if (typeof soldCount !== 'number' || soldCount < 0) {
+      return res.status(400).json({ message: 'Invalid soldCount value' });
+    }
+    product.soldCount = soldCount;
+    await product.save();
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 // Placeholder: Get seller orders
 exports.getOrders = (req, res) => {
   res.json({ message: 'Get seller orders' });
